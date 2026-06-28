@@ -19,6 +19,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use filetime::set_file_mtime;
 use ini::Ini;
 use log::{error, info, warn};
+use openmw_config::OpenMWConfiguration;
 use regex::Regex;
 use rules::*;
 use semver::Version;
@@ -393,11 +394,34 @@ where
 
 pub fn gather_openmw_mods() -> Vec<PluginData> {
     // parse cfg
-    if let Ok(cfg) = openmw_cfg::get_config() {
-        if let Ok(files) = openmw_cfg::get_plugins(&cfg) {
-            let names = files.iter().filter_map(|f| map_data(f)).collect::<Vec<_>>();
-            return names;
+    if let Ok(config) = OpenMWConfiguration::from_env() {
+        // Get resolved data directories (in priority order, last = highest)
+        let data_dirs: Vec<PathBuf> = config
+            .data_directories_iter()
+            .map(|d| d.parsed().to_path_buf())
+            .collect();
+
+        // Get content files in load order
+        let content_files: Vec<String> = config
+            .content_files_iter()
+            .map(|f| f.value().to_string())
+            .collect();
+
+        // Find each content file in data directories (search highest priority first)
+        let mut files = Vec::new();
+        for content_file in content_files {
+            // Search data dirs in reverse (highest priority first)
+            for data_dir in data_dirs.iter().rev() {
+                let plugin_path = data_dir.join(&content_file);
+                if plugin_path.exists() {
+                    files.push(plugin_path);
+                    break;
+                }
+            }
         }
+
+        let names = files.iter().filter_map(|f| map_data(f)).collect::<Vec<_>>();
+        return names;
     } else {
         error!("No openmw.cfg found");
     }
@@ -621,28 +645,12 @@ fn update_cp77(_result: &[String]) -> std::io::Result<()> {
 
 fn update_openmw(result: &[String]) -> std::io::Result<()> {
     // in openMW we just update the cfg with the new order
-    if let Ok(_cfg) = openmw_cfg::get_config() {
-        let path = openmw_cfg::config_path();
-
-        // parse ini
-        let mut buf = Vec::new();
-        for line in read_lines(&path)?.map_while(Result::ok) {
-            // skip plugin lines
-
-            if line.starts_with("content=") {
-                continue;
-            }
-            writeln!(buf, "{}", line)?;
-        }
-
-        // add filenames
-        for r in result {
-            writeln!(buf, "content={}", r)?;
-        }
-
-        // save
-        let mut file = File::create(path)?;
-        file.write_all(&buf)?;
+    if let Ok(mut config) = OpenMWConfiguration::from_env() {
+        // Replace content files
+        config.set_content_files(Some(result.iter().cloned().collect()));
+        
+        // save to user config
+        config.save_user().map_err(|e| std::io::Error::other(e.to_string()))?;
     } else {
         error!("No openmw.cfg found");
     }

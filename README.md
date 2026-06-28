@@ -1,5 +1,22 @@
 # PLOX - Plugin Load Order eXpert
 
+
+## Fork
+
+Original repo has issues with openmw.cfg parsing if you use modpack-specific config (actually, it doesn't works in simple cfg, idk why). The problem in openmw-cfg lib.
+
+## Build
+
+You can build (you need rust and cargo in your system)
+
+```ssh
+cargo build -p plox_gui
+```
+
+exe will be in `./target/debug/plox_gui`
+
+## Descripion
+
 > Nexus link: <https://www.nexusmods.com/morrowind/mods/54262>
 
 PLOX is a rust re-write of MLOX, a utility tool to sort a modlist topologically according to ordering rules. PLOX also outputs warnings and notes dependent on the mods in your load order. You can use it as a GUI app or as a commandline tool.
@@ -57,7 +74,7 @@ The rules are hosted in their own repository:
 
 - [MLOX](https://github.com/mlox/mlox)
 - [MLOX Rules](https://github.com/DanaePlays/mlox-rules)
-- [OpenMw Cfg Crate](https://gitlab.com/bmwinger/openmw-cfg)
+- [openmw-config](https://github.com/DreamWeave-MP/Openmw_Config)
 
 ## CLI Commands
 
